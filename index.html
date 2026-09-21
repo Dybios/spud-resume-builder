@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spud Resume Builder</title>
+	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M 30 25 C 20 40 18 68 32 82 C 45 95 68 93 80 80 C 90 68 88 38 78 22 C 65 5 42 10 30 25 Z' fill='%23D97706' stroke='%2392400E' stroke-width='3'/><circle cx='32' cy='38' r='1.5' fill='%23B45309'/><circle cx='75' cy='45' r='1.5' fill='%23B45309'/><circle cx='40' cy='75' r='1.5' fill='%23B45309'/><path d='M 23 60 C 23 60 38 65 44 86 C 36 88 28 84 23 60 Z' fill='%230F172A' stroke='%231E293B' stroke-width='1.5'/><path d='M 83 58 C 83 58 68 64 62 85 C 70 87 79 81 83 58 Z' fill='%230F172A' stroke='%231E293B' stroke-width='1.5'/><polygon points='44,65 53,82 62,65 53,68' fill='%23FFFFFF'/><polygon points='51,68 55,68 57,80 53,84 49,80' fill='%23DC2626'/><circle cx='43' cy='38' r='2.5' fill='%231E293B'/><circle cx='63' cy='38' r='2.5' fill='%231E293B'/><path d='M 48 46 Q 53 51 58 46' stroke='%231E293B' stroke-width='2' stroke-linecap='round' fill='none'/></svg>">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: '#1a365d',
+                        slateDark: '#0f172a',
+                    }
+                }
+            }
+        }
+    </script>
+	<!-- Mammoth.js for Word (.docx) Parsing -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+	
+	<!-- docx for native Word Document Export -->
+	<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+	
+	<!-- PDF.js for PDF Text Extraction (Main Library + Worker) -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts for Document Preview -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;0,700;1,400;1,700&family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+
+        /* Resume Preview Container Standard Dimensions (US Letter ratio) */
+		.preview-scale-wrapper {
+			width: 100%;
+			display: flex;
+			justify-content: center;
+			padding-bottom: 2rem;
+			padding-top: 1rem;
+			overflow: hidden;
+		}
+		
+		/* The Document Canvas */
+		.resume-page {
+			width: 816px !important;
+			min-width: 816px !important;
+			min-height: 1056px !important;
+			background: white;
+			box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+			box-sizing: border-box !important;
+			word-wrap: break-word;
+			overflow-wrap: break-word;
+			position: relative;
+			transition: transform 0.1s ease-in-out;
+			transform-origin: top center;
+		}
+
+        /* Document Typography Classes */
+        .font-helvetica { font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .font-times { font-family: 'Times New Roman', Times, serif; }
+        .font-garamond { font-family: 'EB Garamond', Garamond, Georgia, serif; }
+        .font-arial { font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; }
+        .font-georgia { font-family: Georgia, serif; }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Visual Page Boundary Line for Editor View */
+        .page-break-indicator {
+            position: absolute;
+            top: 11in;
+            left: 0;
+            right: 0;
+            border-top: 2px dashed #f43f5e;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .page-break-indicator::after {
+            content: "PAGE 1 BOTTOM (Target 1-Page Boundary)";
+            position: absolute;
+            right: 12px;
+            top: -12px;
+            background: #f43f5e;
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .accordion-header {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* Dynamic scale transforms for preview on small screens */
+		@media (max-width: 1400px) {
+			.resume-page {
+				transform: scale(0.85);
+				margin-bottom: -150px;
+			}
+		}
+		
+		@media (max-width: 1100px) {
+			.resume-page {
+				transform: scale(0.7);
+				margin-bottom: -250px;
+			}
+		}
+
+		@media (max-width: 850px) {
+			.resume-page {
+				transform: scale(0.55);
+				margin-bottom: -380px;
+			}
+		}
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+	<!-- Navigation Bar -->
+    <header class="no-print bg-slateDark text-white border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-[1350px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            
+            <!-- LEFT BRANDING -->
+            <div class="flex items-center space-x-3 min-w-0">
+                <div class="bg-amber-500/10 border border-amber-500/30 p-1.5 rounded-xl flex items-center justify-center shadow-inner shrink-0">
+                    <svg class="w-8 h-8" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M 30 25 C 20 40 18 68 32 82 C 45 95 68 93 80 80 C 90 68 88 38 78 22 C 65 5 42 10 30 25 Z" fill="#D97706" stroke="#92400E" stroke-width="3"/>
+                        <circle cx="32" cy="38" r="1.5" fill="#B45309" />
+                        <circle cx="75" cy="45" r="1.5" fill="#B45309" />
+                        <circle cx="40" cy="75" r="1.5" fill="#B45309" />
+                        <path d="M 23 60 C 23 60 38 65 44 86 C 36 88 28 84 23 60 Z" fill="#0F172A" stroke="#1E293B" stroke-width="1.5"/>
+                        <path d="M 83 58 C 83 58 68 64 62 85 C 70 87 79 81 83 58 Z" fill="#0F172A" stroke="#1E293B" stroke-width="1.5"/>
+                        <polygon points="44,65 53,82 62,65 53,68" fill="#FFFFFF" />
+                        <polygon points="51,68 55,68 57,80 53,84 49,80" fill="#DC2626" />
+                        <circle cx="43" cy="38" r="2.5" fill="#1E293B"/>
+                        <circle cx="63" cy="38" r="2.5" fill="#1E293B"/>
+                        <path d="M 48 46 Q 53 51 58 46" stroke="#1E293B" stroke-width="2" stroke-linecap="round" fill="none"/>
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <h1 class="font-bold text-base sm:text-lg leading-tight text-amber-400 truncate">
+                        Spud Resume Builder
+                    </h1>
+                    <p class="text-xs text-slate-400 truncate max-w-[150px] sm:max-w-xs md:max-w-md lg:max-w-none">No-frills free automated resume generator on your local potato farm.</p>
+                </div>
+            </div>
+
+            <!-- RIGHT ACTIONS CONTAINER -->
+            <div class="flex items-center space-x-2 shrink-0">
+                <button onclick="clearLocalStorageData()" class="px-2.5 sm:px-3 py-1.5 text-xs font-medium text-rose-300 hover:text-white bg-rose-950/40 hover:bg-rose-900/60 rounded-md transition flex items-center space-x-1.5 border border-rose-800/50" title="Clear all locally saved data">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span class="hidden md:inline">Clear Data</span>
+                </button>
+				
+                <!-- Import Dropdown -->
+				<div class="relative inline-block text-left" id="importDropdownContainer">
+					<button onclick="toggleImportDropdown()" class="px-2.5 sm:px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md transition flex items-center space-x-1.5 border border-slate-700">
+						<i class="fa-solid fa-file-import"></i>
+						<span>Import</span>
+						<i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
+					</button>
+				
+					<div id="importDropdown" class="hidden absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 py-1 text-xs text-slate-300">
+						<button onclick="triggerImport('docx')" class="w-full text-left px-3 py-2 hover:bg-slate-800 hover:text-white flex items-center space-x-2 border-b border-slate-800">
+							<i class="fa-solid fa-file-word text-blue-400 w-4"></i>
+							<span>Parse Word (.docx)</span>
+						</button>
+						<button onclick="triggerImport('pdf')" class="w-full text-left px-3 py-2 hover:bg-slate-800 hover:text-white flex items-center space-x-2 border-b border-slate-800">
+							<i class="fa-solid fa-file-pdf text-rose-400 w-4"></i>
+							<span>Parse PDF (.pdf)</span>
+						</button>
+						<button onclick="triggerImport('json')" class="w-full text-left px-3 py-2 hover:bg-slate-800 hover:text-white flex items-center space-x-2">
+							<i class="fa-solid fa-code text-amber-400 w-4"></i>
+							<span>Import JSON Backup</span>
+						</button>
+					</div>
+				</div>
+
+				<input type="file" id="importJsonInput" accept=".json" class="hidden" onchange="importData(event)">
+				<input type="file" id="importPdfInput" accept=".pdf" class="hidden" onchange="handlePdfUpload(event)">
+				<input type="file" id="importDocxInput" accept=".docx" class="hidden" onchange="handleDocxUpload(event)">
+
+                <!-- Export Dropdown -->
+                <div class="relative inline-block text-left hidden sm:block" id="exportDropdownContainer">
+                    <button onclick="toggleExportDropdown()" class="px-2.5 sm:px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-md transition flex items-center space-x-1.5 border border-slate-700">
+                        <i class="fa-solid fa-file-export"></i>
+                        <span>Export</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
+                    </button>
+                
+                    <div id="exportDropdown" class="hidden absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 py-1 text-xs text-slate-300">
+                        <button onclick="exportToDocx()" class="w-full text-left px-3 py-2 hover:bg-slate-800 hover:text-white flex items-center space-x-2 border-b border-slate-800">
+                            <i class="fa-solid fa-file-word text-blue-400 w-4"></i>
+                            <span>Export DOCX</span>
+                        </button>
+                        <button onclick="exportData()" class="w-full text-left px-3 py-2 hover:bg-slate-800 hover:text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-code text-amber-400 w-4"></i>
+                            <span>Export JSON Backup</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- DOCX Download Button -->
+                <button onclick="exportToDocx()" id="downloadBtn" class="px-3 sm:px-4 py-1.5 text-xs font-semibold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-md transition shadow-md shadow-amber-950/30 flex items-center space-x-2">
+                    <i class="fa-solid fa-file-word"></i>
+                    <span>Download DOCX</span>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-[1350px] w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+
+		<!-- LEFT COLUMN: Input Forms & Controls -->
+        <section class="lg:col-span-4 flex flex-col space-y-3 no-print pr-2">
+            
+            <!-- 1. COMPACT STYLING & FORMATTING TOOLBAR -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-2.5 shrink-0 space-y-2">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-1">
+                    <h2 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-sliders text-blue-600"></i>
+                        <span>Styling & Page Layout Controls</span>
+                    </h2>
+                    <button onclick="resetDefaults()" class="text-[11px] text-slate-400 hover:text-rose-500 transition">Reset All</button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-0.5">Primary Color</label>
+                        <div class="flex items-center space-x-1.5">
+                            <input type="color" id="primaryColor" value="#1a365d" onchange="renderResume()" class="w-6 h-6 rounded border border-slate-200 cursor-pointer p-0.5">
+                            <select id="presetColor" onchange="applyColorPreset(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-slate-700 text-[11px]">
+                                <option value="#1a365d">Deep Navy</option>
+                                <option value="#0f172a">Slate Black</option>
+                                <option value="#065f46">Emerald</option>
+                                <option value="#881337">Burgundy</option>
+                                <option value="#312e81">Indigo</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-0.5">ATS Safe Font</label>
+                        <select id="fontFamily" onchange="renderResume()" class="w-full bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-slate-700 text-[11px] font-medium">
+                            <option value="font-helvetica">Helvetica / Inter</option>
+                            <option value="font-times">Times New Roman</option>
+                            <option value="font-garamond">Garamond</option>
+                            <option value="font-arial">Arial</option>
+                            <option value="font-georgia">Georgia</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-0.5 flex justify-between text-[11px]">
+                            <span>Font Scale</span>
+                            <span id="fontScaleLabel" class="text-blue-600 font-bold">100%</span>
+                        </label>
+                        <input type="range" id="fontScale" min="80" max="115" value="100" oninput="updateFontScale(this.value)" class="w-full accent-blue-600 cursor-pointer">
+                    </div>
+
+                    <div>
+                        <label class="block font-medium text-slate-600 mb-0.5 flex justify-between text-[11px]">
+                            <span>Margins</span>
+                            <span id="marginLabel" class="text-blue-600 font-bold">0.40 in</span>
+                        </label>
+                        <input type="range" id="pageMargin" min="0.3" max="0.8" step="0.05" value="0.4" oninput="updatePageMargin(this.value)" class="w-full accent-blue-600 cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. FIXED-HEIGHT SCROLLABLE FORM WINDOW -->
+            <div class="max-h-[580px] overflow-y-auto space-y-3 pr-1 border border-slate-200/60 rounded-xl p-1 bg-slate-100/50">
+                
+                <!-- SECTION 1: Contact Information -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('contactAcc')">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-address-book text-blue-600"></i>
+                            <h3 class="font-semibold text-slate-800 text-xs">Contact Information</h3>
+                        </div>
+                        <i id="contactAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                    </div>
+                    <div id="contactAcc" class="p-3 space-y-2.5 text-xs">
+                        <div>
+                            <label class="block font-medium text-slate-600 mb-1">Full Name</label>
+                            <input type="text" id="contactName" oninput="renderResume()" placeholder="Jane Doe" class="w-full border border-slate-200 rounded px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block font-medium text-slate-600 mb-1">Email Address</label>
+                                <input type="email" id="contactEmail" oninput="renderResume()" placeholder="jane.doe@email.com" class="w-full border border-slate-200 rounded px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block font-medium text-slate-600 mb-1">Phone Number</label>
+                                <input type="text" id="contactPhone" oninput="renderResume()" placeholder="+1 (555) 019-2831" class="w-full border border-slate-200 rounded px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div>
+                                <label class="block font-medium text-slate-600 mb-1">Location</label>
+                                <input type="text" id="contactLocation" oninput="renderResume()" placeholder="San Francisco, CA" class="w-full border border-slate-200 rounded px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block font-medium text-slate-600 mb-1">LinkedIn Profile</label>
+                                <input type="text" id="contactLinkedin" oninput="renderResume()" placeholder="linkedin.com/in/janedoe" class="w-full border border-slate-200 rounded px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block font-medium text-slate-600 mb-1">GitHub / Portfolio</label>
+                                <input type="text" id="contactGithub" oninput="renderResume()" placeholder="github.com/janedoe" class="w-full border border-slate-200 rounded px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 2: Professional Summary -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('summaryAcc')">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-user-astronaut text-blue-600"></i>
+                            <h3 class="font-semibold text-slate-800 text-xs">Professional Summary</h3>
+                        </div>
+                        <i id="summaryAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                    </div>
+                    <div id="summaryAcc" class="p-3 text-xs">
+                        <textarea id="summaryText" rows="3" oninput="renderResume()" placeholder="Write 2-4 sentences..." class="w-full border border-slate-200 rounded p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none leading-relaxed"></textarea>
+                    </div>
+                </div>
+
+                <!-- SECTION 3: Skills -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('skillsAcc')">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-list-check text-blue-600"></i>
+                            <h3 class="font-semibold text-slate-800 text-xs">Skills & Core Competencies</h3>
+                        </div>
+                        <i id="skillsAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                    </div>
+                    <div id="skillsAcc" class="p-3 space-y-2.5 text-xs">
+                        <div id="skillsList" class="space-y-2.5"></div>
+                        <button onclick="addSkillCategory()" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded transition flex items-center justify-center space-x-1.5 mt-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                            <span>Add Skill Category</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SECTION 4: Work Experience -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('expAcc')">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-briefcase text-blue-600"></i>
+                            <h3 class="font-semibold text-slate-800 text-xs">Work Experience</h3>
+                        </div>
+                        <i id="expAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                    </div>
+                    <div id="expAcc" class="p-3 space-y-3 text-xs">
+                        <div id="experienceList" class="space-y-3"></div>
+                        <button onclick="addExperience()" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded transition flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                            <span>Add Work Experience</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SECTION 5: Projects -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('projAcc')">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-diagram-project text-blue-600"></i>
+                            <h3 class="font-semibold text-slate-800 text-xs">Key Projects</h3>
+                        </div>
+                        <i id="projAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                    </div>
+                    <div id="projAcc" class="p-3 space-y-3 text-xs">
+                        <div id="projectsList" class="space-y-3"></div>
+                        <button onclick="addProject()" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded transition flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                            <span>Add Project</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SECTION 6: Education -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('eduAcc')">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-graduation-cap text-blue-600"></i>
+                            <h3 class="font-semibold text-slate-800 text-xs">Education</h3>
+                        </div>
+                        <i id="eduAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                    </div>
+                    <div id="eduAcc" class="p-3 space-y-3 text-xs">
+                        <div id="educationList" class="space-y-3"></div>
+                        <button onclick="addEducation()" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded transition flex items-center justify-center space-x-1.5">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                            <span>Add Education</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 3. JOB MATCHER -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 shrink-0 overflow-hidden mt-3">
+                <div class="accordion-header bg-slate-50 p-2.5 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('atsAcc')">
+                    <div class="flex items-center space-x-1.5">
+                        <i class="fa-solid fa-bullseye text-amber-600"></i>
+                        <h3 class="font-semibold text-slate-800 text-xs">Job Matcher</h3>
+
+                        <div class="flex items-center space-x-1.5 ml-1" onclick="event.stopPropagation()">
+                            <span id="aiStatusIndicator" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200" title="Model Status">
+                                <span id="aiStatusDot" class="w-1.5 h-1.5 rounded-full bg-slate-400 mr-1"></span>
+                                <span id="aiStatusText">Model Not Loaded</span>
+                            </span>
+                            <button onclick="clearAiModelCache()" id="quickClearAiBtn" title="Clear Downloaded Model Cache" class="hidden text-slate-400 hover:text-rose-600 text-[11px] p-0.5 transition">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <i id="atsAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-[10px] transition-transform"></i>
+                </div>
+                <div id="atsAcc" class="p-2.5 space-y-2 text-xs">
+                    <textarea id="jdInput" rows="2" placeholder="Paste target Job Description here..." class="w-full border border-slate-200 rounded p-1.5 focus:ring-2 focus:ring-amber-500 focus:outline-none leading-snug"></textarea>
+                    
+                    <button onclick="runAtsAnalysis()" class="w-full py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold rounded transition shadow-sm flex items-center justify-center space-x-1 text-xs">
+                        <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
+                        <span>Analyze Match Score</span>
+                    </button>
+
+					<div id="atsResultsContainer" class="hidden pt-1.5 border-t border-slate-100 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-700 text-[11px]">Match Score:</span>
+                            <div class="flex items-center space-x-2">
+                                <span id="atsScoreBadge" class="px-2 py-0.5 rounded font-bold text-[11px] bg-emerald-100 text-emerald-700">0%</span>
+                                <button onclick="openAtsModal()" class="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 rounded font-semibold text-[10px] transition">
+                                    <i class="fa-solid fa-chart-pie mr-1"></i> Details
+                                </button>
+                            </div>
+                        </div>
+						<div id="atsMissingKeywords" class="hidden"></div>
+                        <p class="text-[10px] text-slate-500 italic">Click 'Details' for full semantic breakdown and missing concept analysis.</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- RIGHT COLUMN: Live Interactive Document Preview -->
+        <section class="lg:col-span-8 flex flex-col items-center justify-start pb-12">
+            
+            <div class="w-full flex items-center justify-between mb-3 text-xs text-slate-500 no-print px-1">
+                <span class="flex items-center space-x-1.5 font-medium">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Live Document Preview</span>
+                </span>
+				
+                <div id="pageStatusBadge" class="px-2.5 py-1 rounded-full font-semibold text-[11px] shadow-sm bg-slate-100 text-slate-600 border border-slate-200">
+                    Calculando...
+                </div>
+				
+                <span class="text-slate-400">Single-Column Standard Layout</span>
+            </div>
+
+            <!-- Scalable Document Canvas Wrapper -->
+            <div class="preview-scale-wrapper w-full flex justify-center">
+                <div id="resumeDocument" class="resume-page font-helvetica relative" style="padding: 0.5in;">
+                    
+                    <div class="page-break-indicator no-print"></div>
+
+                    <div id="docContent" class="space-y-4">
+                        <header class="text-center space-y-1" id="docHeader">
+                            <h1 id="docName" class="text-2xl font-bold tracking-tight uppercase" style="color: #1a365d;">JANE DOE</h1>
+                            <div id="docContact" class="text-[9.5pt] text-slate-800 leading-tight flex flex-wrap justify-center items-center gap-x-2 gap-y-1">
+                            </div>
+                        </header>
+
+                        <section id="docSummarySection" class="space-y-1">
+                            <h2 class="text-[11pt] font-bold uppercase tracking-wide pb-0.5 border-b" style="color: #1a365d; border-color: #cbd5e1;">Professional Summary</h2>
+                            <p id="docSummary" class="text-[9.5pt] leading-snug text-slate-900 text-justify"></p>
+                        </section>
+
+                        <section id="docSkillsSection" class="space-y-1">
+                            <h2 class="text-[11pt] font-bold uppercase tracking-wide pb-0.5 border-b" style="color: #1a365d; border-color: #cbd5e1;">Skills & Competencies</h2>
+                            <div id="docSkills" class="text-[9.5pt] leading-snug text-slate-900 space-y-1">
+                            </div>
+                        </section>
+
+                        <section id="docExperienceSection" class="space-y-2">
+                            <h2 class="text-[11pt] font-bold uppercase tracking-wide pb-0.5 border-b" style="color: #1a365d; border-color: #cbd5e1;">Work Experience</h2>
+                            <div id="docExperience" class="space-y-3">
+                            </div>
+                        </section>
+
+                        <section id="docProjectsSection" class="space-y-2">
+                            <h2 class="text-[11pt] font-bold uppercase tracking-wide pb-0.5 border-b" style="color: #1a365d; border-color: #cbd5e1;">Key Projects</h2>
+                            <div id="docProjects" class="space-y-3">
+                            </div>
+                        </section>
+
+                        <section id="docEducationSection" class="space-y-2">
+                            <h2 class="text-[11pt] font-bold uppercase tracking-wide pb-0.5 border-b" style="color: #1a365d; border-color: #cbd5e1;">Education</h2>
+                            <div id="docEducation" class="space-y-2">
+                            </div>
+                        </section>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+	<!-- Footer -->
+	<footer class="no-print bg-slateDark border-t border-slate-800 text-slate-400 text-xs py-3 px-6 mt-auto">
+		<div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+			<div class="flex items-center space-x-2">
+				<span><b>Spud Resume Builder</b></span>
+			</div>
+	
+			<div class="flex items-center space-x-1.5 text-xs">
+				<span class="text-slate-400">100% Free & Local Generator. Don't believe it?</span>
+				<button onclick="openPrivacyModal()" class="text-amber-400 hover:text-amber-300 font-semibold underline decoration-amber-500/40 hover:decoration-amber-300 transition flex items-center space-x-1">
+					<span>Prove it yourself here</span>
+					<i class="fa-solid fa-arrow-right text-[10px]"></i>
+				</button>
+			</div>
+	
+			<div class="flex items-center space-x-2 font-mono text-[11px] text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-2.5 py-1 rounded">
+				<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+				<span>0 Network Requests Sent</span>
+			</div>
+		</div>
+	</footer>
+
+	<!-- Interactive Privacy Telemetry Modal -->
+	<div id="privacyModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+		<div class="bg-slate-900 border border-slate-800 rounded-xl max-w-xl w-full p-6 text-slate-200 shadow-2xl relative space-y-5">
+			<div class="flex justify-between items-start border-b border-slate-800 pb-4">
+				<div class="flex items-center space-x-3">
+					<div class="bg-amber-500/10 text-amber-400 border border-amber-500/30 p-2 rounded-lg text-lg">
+						🛡️
+					</div>
+					<div>
+						<h3 class="font-bold text-amber-400 text-base">Client-Side Privacy Telemetry</h3>
+						<p class="text-xs text-slate-400">Live browser proof that no data leaves your device.</p>
+					</div>
+				</div>
+				<button onclick="closePrivacyModal()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+			</div>
+	
+			<div class="grid grid-cols-3 gap-3 font-mono text-center">
+				<div class="bg-slate-950 border border-slate-800 p-3 rounded-lg">
+					<div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Local Storage Payload</div>
+					<div id="modal-bytes" class="text-amber-400 font-bold text-sm">0 B</div>
+				</div>
+				<div class="bg-slate-950 border border-slate-800 p-3 rounded-lg">
+					<div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Outbound HTTP Requests</div>
+					<div class="text-emerald-400 font-bold text-sm">0</div>
+				</div>
+				<div class="bg-slate-950 border border-slate-800 p-3 rounded-lg">
+					<div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Render Latency</div>
+					<div id="modal-render-time" class="text-sky-400 font-bold text-sm">0ms</div>
+				</div>
+			</div>
+	
+			<div class="space-y-3 text-xs border-t border-slate-800 pt-4">
+				<h4 class="font-semibold text-slate-300 flex items-center space-x-2">
+					<span>🔍 How to verify this in your browser:</span>
+				</h4>
+				<ul class="space-y-2.5 text-slate-400">
+					<li class="flex items-start space-x-2">
+						<span class="text-amber-400 font-bold">•</span>
+						<span><b>Network Isolation:</b> Press <kbd class="px-1 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700">F12</kbd> (or right click > Inspect Element) and select the <b>Network</b> tab. Type in any field or click "Download PDF"—zero API calls or data transmissions will register.</span>
+					</li>
+					<li class="flex items-start space-x-2">
+						<span class="text-amber-400 font-bold">•</span>
+						<span><b>Local Persistence:</b> Under <kbd class="px-1 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700">Application &gt; Local Storage &gt; spud_resume_data</kbd>, you can view the exact JSON string being updated locally on your machine.</span>
+					</li>
+				</ul>
+			</div>
+	
+			<div class="pt-2 flex justify-end">
+				<button onclick="closePrivacyModal()" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-medium transition">
+					Close Telemetry
+				</button>
+			</div>
+		</div>
+	</div>
+	
+	<!-- Interactive ATS Match Audit Modal -->
+	<div id="atsModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+		<div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full p-6 text-slate-200 shadow-2xl relative space-y-4 max-h-[85vh] overflow-y-auto">
+			<div class="flex justify-between items-start border-b border-slate-800 pb-3">
+				<div class="flex items-center space-x-3">
+					<div class="bg-amber-500/10 text-amber-400 border border-amber-500/30 p-2 rounded-lg text-base">
+						<i class="fa-solid fa-wand-magic-sparkles"></i>
+					</div>
+					<div>
+						<h3 class="font-bold text-amber-400 text-base">AI Semantic Match Analysis</h3>
+						<p class="text-xs text-slate-400">Deep neural vector alignment and professional gap analysis.</p>
+					</div>
+				</div>
+				<button onclick="closeAtsModal()" class="text-slate-400 hover:text-white text-base font-bold">✕</button>
+			</div>
+	
+			<div class="space-y-4 text-xs">
+                <div class="bg-slate-950 border border-slate-800 p-4 rounded-lg flex items-center justify-between">
+                    <div>
+                        <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Neural Semantic Fit Score</div>
+                        <div id="modalAtsSubtitle" class="text-slate-300 text-xs mt-0.5">Calculated via local transformer embeddings.</div>
+                    </div>
+                    <div id="modalAtsScoreBig" class="text-2xl font-black text-emerald-400 font-mono">0%</div>
+                </div>
+
+                <div class="bg-slate-950 border border-slate-800 p-4 rounded-lg space-y-3">
+                    <div class="font-bold text-blue-400 flex items-center space-x-2 text-sm border-b border-slate-800 pb-2">
+                        <i class="fa-solid fa-brain"></i>
+                        <span>AI Analytical Assessment</span>
+                    </div>
+                    <div id="aiAnalysisNarrative" class="text-slate-300 text-xs leading-relaxed space-y-2">
+                    </div>
+                </div>
+
+                <div class="bg-slate-950 border border-slate-800 p-4 rounded-lg space-y-3">
+                    <div class="font-bold text-amber-400 flex items-center space-x-2 text-sm border-b border-slate-800 pb-2">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span>Actionable Recommendations</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Copy these tailored, metrics-driven bullet points and paste them directly into your Work Experience or Projects to upgrade your resume.</p>
+                    <ul id="aiImprovementBullets" class="space-y-2 text-slate-300 text-xs">
+                    </ul>
+                </div>
+            </div>
+	
+			<div class="pt-2 flex justify-end border-t border-slate-800">
+				<button onclick="closeAtsModal()" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-medium transition">
+					Close Analysis
+				</button>
+			</div>
+		</div>
+	</div>
+
+    <!-- Link to the compiled, minified/obfuscated bundle for production -->
+    <script src="app.min.js"></script>
+</body>
+</html>
