@@ -120,6 +120,21 @@
             user-select: none;
         }
 
+        /* Drag & Drop Visual Feedback */
+        .draggable-section {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .draggable-section.dragging {
+            opacity: 0.4;
+            transform: scale(0.98);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .draggable-section.drag-over {
+            border-top: 3px solid #3b82f6 !important;
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
         /* Dynamic scale transforms for preview on small screens */
 		@media (max-width: 1400px) {
 			.resume-page {
@@ -310,9 +325,9 @@
             </div>
 
             <!-- 2. FIXED-HEIGHT SCROLLABLE FORM WINDOW -->
-            <div class="max-h-[580px] overflow-y-auto space-y-3 pr-1 border border-slate-200/60 rounded-xl p-1 bg-slate-100/50">
+            <div id="editorSections" class="max-h-[580px] overflow-y-auto space-y-3 pr-1 border border-slate-200/60 rounded-xl p-1 bg-slate-100/50">
                 
-                <!-- SECTION 1: Contact Information -->
+                <!-- SECTION 1: Contact Information (Pinned to Top) -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('contactAcc')">
                         <div class="flex items-center space-x-2">
@@ -354,29 +369,37 @@
                 </div>
 
                 <!-- SECTION 2: Professional Summary -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div id="section-summary" data-id="summary" draggable="true" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="draggable-section bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden cursor-move">
                     <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('summaryAcc')">
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-user-astronaut text-blue-600"></i>
-                            <h3 class="font-semibold text-slate-800 text-xs">Professional Summary</h3>
+                        <div class="flex items-center space-x-2 w-full">
+                            <i class="fa-solid fa-grip-vertical text-slate-300 hover:text-slate-500 px-1" onclick="event.stopPropagation()"></i>
+                            <i class="fa-solid fa-user-astronaut text-blue-600 w-4 text-center"></i>
+                            <input type="text" id="titleInput-summary" value="Professional Summary" onchange="updateSectionTitle('summary', this.value)" onclick="event.stopPropagation()" class="font-semibold text-slate-800 text-xs bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none w-full cursor-text py-0.5 transition-colors">
                         </div>
-                        <i id="summaryAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                        <i id="summaryAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform ml-2 shrink-0"></i>
                     </div>
-                    <div id="summaryAcc" class="p-3 text-xs">
+                    <div id="summaryAcc" class="p-3 text-xs cursor-auto">
+                        <div class="flex items-center justify-end mb-1">
+                            <button onclick="aiImproveSummary()" class="text-[10px] text-purple-600 hover:text-purple-700 font-bold flex items-center space-x-1 border border-purple-200 bg-purple-50 px-2 py-0.5 rounded transition">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                <span>Improve with AI</span>
+                            </button>
+                        </div>
                         <textarea id="summaryText" rows="3" oninput="renderResume()" placeholder="Write 2-4 sentences..." class="w-full border border-slate-200 rounded p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none leading-relaxed"></textarea>
                     </div>
                 </div>
 
                 <!-- SECTION 3: Skills -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div id="section-skills" data-id="skills" draggable="true" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="draggable-section bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden cursor-move">
                     <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('skillsAcc')">
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-list-check text-blue-600"></i>
-                            <h3 class="font-semibold text-slate-800 text-xs">Skills & Core Competencies</h3>
+                        <div class="flex items-center space-x-2 w-full">
+                            <i class="fa-solid fa-grip-vertical text-slate-300 hover:text-slate-500 px-1" onclick="event.stopPropagation()"></i>
+                            <i class="fa-solid fa-list-check text-blue-600 w-4 text-center"></i>
+                            <input type="text" id="titleInput-skills" value="Skills & Core Competencies" onchange="updateSectionTitle('skills', this.value)" onclick="event.stopPropagation()" class="font-semibold text-slate-800 text-xs bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none w-full cursor-text py-0.5 transition-colors">
                         </div>
-                        <i id="skillsAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                        <i id="skillsAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform ml-2 shrink-0"></i>
                     </div>
-                    <div id="skillsAcc" class="p-3 space-y-2.5 text-xs">
+                    <div id="skillsAcc" class="p-3 space-y-2.5 text-xs cursor-auto">
                         <div id="skillsList" class="space-y-2.5"></div>
                         <button onclick="addSkillCategory()" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded transition flex items-center justify-center space-x-1.5 mt-1">
                             <i class="fa-solid fa-plus text-[10px]"></i>
@@ -386,15 +409,16 @@
                 </div>
 
                 <!-- SECTION 4: Work Experience -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div id="section-experience" data-id="experience" draggable="true" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="draggable-section bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden cursor-move">
                     <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('expAcc')">
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-briefcase text-blue-600"></i>
-                            <h3 class="font-semibold text-slate-800 text-xs">Work Experience</h3>
+                        <div class="flex items-center space-x-2 w-full">
+                            <i class="fa-solid fa-grip-vertical text-slate-300 hover:text-slate-500 px-1" onclick="event.stopPropagation()"></i>
+                            <i class="fa-solid fa-briefcase text-blue-600 w-4 text-center"></i>
+                            <input type="text" id="titleInput-experience" value="Work Experience" onchange="updateSectionTitle('experience', this.value)" onclick="event.stopPropagation()" class="font-semibold text-slate-800 text-xs bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none w-full cursor-text py-0.5 transition-colors">
                         </div>
-                        <i id="expAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                        <i id="expAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform ml-2 shrink-0"></i>
                     </div>
-                    <div id="expAcc" class="p-3 space-y-3 text-xs">
+                    <div id="expAcc" class="p-3 space-y-3 text-xs cursor-auto">
                         <div id="experienceList" class="space-y-3"></div>
                         <button onclick="addExperience()" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded transition flex items-center justify-center space-x-1.5">
                             <i class="fa-solid fa-plus text-[10px]"></i>
@@ -404,15 +428,16 @@
                 </div>
 
                 <!-- SECTION 5: Projects -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div id="section-projects" data-id="projects" draggable="true" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="draggable-section bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden cursor-move">
                     <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('projAcc')">
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-diagram-project text-blue-600"></i>
-                            <h3 class="font-semibold text-slate-800 text-xs">Key Projects</h3>
+                        <div class="flex items-center space-x-2 w-full">
+                            <i class="fa-solid fa-grip-vertical text-slate-300 hover:text-slate-500 px-1" onclick="event.stopPropagation()"></i>
+                            <i class="fa-solid fa-diagram-project text-blue-600 w-4 text-center"></i>
+                            <input type="text" id="titleInput-projects" value="Key Projects" onchange="updateSectionTitle('projects', this.value)" onclick="event.stopPropagation()" class="font-semibold text-slate-800 text-xs bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none w-full cursor-text py-0.5 transition-colors">
                         </div>
-                        <i id="projAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                        <i id="projAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform ml-2 shrink-0"></i>
                     </div>
-                    <div id="projAcc" class="p-3 space-y-3 text-xs">
+                    <div id="projAcc" class="p-3 space-y-3 text-xs cursor-auto">
                         <div id="projectsList" class="space-y-3"></div>
                         <button onclick="addProject()" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded transition flex items-center justify-center space-x-1.5">
                             <i class="fa-solid fa-plus text-[10px]"></i>
@@ -422,15 +447,16 @@
                 </div>
 
                 <!-- SECTION 6: Education -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div id="section-education" data-id="education" draggable="true" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="draggable-section bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden cursor-move">
                     <div class="accordion-header bg-slate-50 p-3 border-b border-slate-100 flex items-center justify-between" onclick="toggleAccordion('eduAcc')">
-                        <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-graduation-cap text-blue-600"></i>
-                            <h3 class="font-semibold text-slate-800 text-xs">Education</h3>
+                        <div class="flex items-center space-x-2 w-full">
+                            <i class="fa-solid fa-grip-vertical text-slate-300 hover:text-slate-500 px-1" onclick="event.stopPropagation()"></i>
+                            <i class="fa-solid fa-graduation-cap text-blue-600 w-4 text-center"></i>
+                            <input type="text" id="titleInput-education" value="Education" onchange="updateSectionTitle('education', this.value)" onclick="event.stopPropagation()" class="font-semibold text-slate-800 text-xs bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none w-full cursor-text py-0.5 transition-colors">
                         </div>
-                        <i id="eduAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                        <i id="eduAccIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform ml-2 shrink-0"></i>
                     </div>
-                    <div id="eduAcc" class="p-3 space-y-3 text-xs">
+                    <div id="eduAcc" class="p-3 space-y-3 text-xs cursor-auto">
                         <div id="educationList" class="space-y-3"></div>
                         <button onclick="addEducation()" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded transition flex items-center justify-center space-x-1.5">
                             <i class="fa-solid fa-plus text-[10px]"></i>
@@ -438,7 +464,6 @@
                         </button>
                     </div>
                 </div>
-
             </div>
 
             <!-- 3. JOB MATCHER -->
